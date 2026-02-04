@@ -1,0 +1,804 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>5000 Mots Français - Flashcards</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body { background-color: #f3f4f6; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        
+        /* 3D Flip Animation */
+        .flashcard-container { perspective: 1000px; width: 350px; height: 450px; }
+        .flashcard {
+            width: 100%; height: 100%;
+            position: relative;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+            cursor: pointer;
+        }
+        .flashcard.is-flipped { transform: rotateY(180deg); }
+        .card-face {
+            position: absolute; width: 100%; height: 100%;
+            backface-visibility: hidden;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            border-radius: 1.5rem; box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            padding: 2rem; text-align: center;
+        }
+        .card-front { background: white; border: 2px solid #e5e7eb; }
+        .card-back {
+            background: #007c7c; color: white;
+            transform: rotateY(180deg);
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-4">
+
+    <!-- Header & Progress -->
+    <div class="mb-8 text-center">
+        <h1 class="text-3xl font-bold text-gray-800 mb-2">Vocabulaire Français</h1>
+        <p class="text-gray-500">Apprenez les 5000 mots les plus fréquents</p>
+        <div class="mt-4 bg-gray-200 rounded-full h-2.5 w-64 mx-auto">
+            <div id="progress-bar" class="bg-teal-600 h-2.5 rounded-full" style="width: 0%"></div>
+        </div>
+        <p class="text-xs mt-2 text-gray-400 font-mono" id="progress-text">Mot 1 sur 5000</p>
+    </div>
+
+    <!-- Flashcard -->
+    <div class="flashcard-container" onclick="flipCard()">
+        <div class="flashcard" id="card">
+            <div class="card-face card-front">
+                <span class="text-sm font-bold text-teal-600 uppercase tracking-widest mb-4">Français</span>
+                <h2 class="text-5xl font-bold mb-4" id="fr-word">le</h2>
+                <p class="text-gray-400 italic text-sm" id="word-type">article</p>
+                <div class="absolute bottom-6 text-gray-300">
+                    <i class="fas fa-sync-alt mr-2"></i> Cliquez pour tourner
+                </div>
+            </div>
+            <div class="card-face card-back">
+                <span class="text-sm font-bold text-teal-200 uppercase tracking-widest mb-4">Anglais</span>
+                <h2 class="text-4xl font-semibold" id="en-word">the</h2>
+            </div>
+        </div>
+    </div>
+
+    <!-- Controls -->
+    <div class="mt-10 flex items-center space-x-6">
+        <button onclick="prevCard()" class="w-12 h-12 rounded-full bg-white shadow hover:bg-gray-50 flex items-center justify-center text-gray-600 transition">
+            <i class="fas fa-chevron-left"></i>
+        </button>
+        
+        <button onclick="shuffleCards()" class="px-6 py-2 rounded-full bg-gray-800 text-white text-sm font-bold hover:bg-gray-700 transition">
+            <i class="fas fa-random mr-2"></i> MÉLANGER
+        </button>
+
+        <button onclick="nextCard()" class="w-12 h-12 rounded-full bg-teal-600 shadow hover:bg-teal-700 flex items-center justify-center text-white transition">
+            <i class="fas fa-chevron-right"></i>
+        </button>
+    </div>
+
+    <!-- Shortcuts Info -->
+    <div class="mt-8 text-gray-400 text-xs">
+        Astuce : Utilisez les flèches du clavier ← → et Espace pour tourner
+    </div>
+
+    <script>
+        // WORD DATABASE
+        // You can extend this array up to 5000 words.
+        const vocab = [
+            {fr: "le", en: "the", type: "article"},
+            {fr: "de", en: "of, from", type: "preposition"},
+            {fr: "un", en: "a, an, one", type: "article/number"},
+            {fr: "être", en: "to be", type: "verb"},
+            {fr: "et", en: "and", type: "conjunction"},
+            {fr: "à", en: "to, at, in", type: "preposition"},
+            {fr: "il", en: "he, it", type: "pronoun"},
+            {fr: "avoir", en: "to have", type: "verb"},
+            {fr: "ne", en: "not", type: "adverb"},
+            {fr: "je", en: "I", type: "pronoun"},
+            {fr: "son", en: "his, her, its", type: "possessive adjective"},
+            {fr: "que", en: "that, which, who", type: "conjunction/pronoun"},
+            {fr: "se", en: "himself, herself, itself, themselves", type: "pronoun"},
+            {fr: "qui", en: "who, whom, that", type: "pronoun"},
+            {fr: "ce", en: "this, that", type: "adjective/pronoun"},
+            {fr: "dans", en: "in, into, within", type: "preposition"},
+            {fr: "en", en: "in, by, while", type: "preposition/pronoun"},
+            {fr: "du", en: "of the, from the, some", type: "article"},
+            {fr: "elle", en: "she, it", type: "pronoun"},
+            {fr: "au", en: "at the, to the", type: "article"},
+            {fr: "faire", en: "to do, to make", type: "verb"},
+            {fr: "me", en: "me, myself", type: "pronoun"},
+            {fr: "plus", en: "more, most", type: "adverb"},
+            {fr: "par", en: "by, through, per", type: "preposition"},
+            {fr: "sur", en: "on, upon, over", type: "preposition"},
+            {fr: "dire", en: "to say, tell", type: "verb"},
+            {fr: "pouvoir", en: "to be able to, can", type: "verb"},
+            {fr: "tout", en: "all, every, everything", type: "adjective/pronoun"},
+            {fr: "mais", en: "but", type: "conjunction"},
+            {fr: "nous", en: "we, us", type: "pronoun"},
+            {fr: "comme", en: "like, as", type: "conjunction/adverb"},
+            {fr: "on", en: "one, we, they", type: "pronoun"},
+            {fr: "ou", en: "or", type: "conjunction"},
+            {fr: "si", en: "if, whether, so", type: "conjunction/adverb"},
+            {fr: "leur", en: "their, theirs, them", type: "possessive/pronoun"},
+            {fr: "y", en: "there, in it, to it", type: "pronoun"},
+            {fr: "dire", en: "to say, tell", type: "verb"},
+            {fr: "vouloir", en: "to want", type: "verb"},
+            {fr: "maison", en: "house", type: "noun"},
+            {fr: "temps", en: "time, weather", type: "noun"},
+            {fr: "année", en: "year", type: "noun"},
+            {fr: "homme", en: "man", type: "noun"},
+            {fr: "jour", en: "day", type: "noun"},
+            {fr: "femme", en: "woman, wife", type: "noun"},
+            {fr: "maintenant", en: "now", type: "adverb"},
+            // Original words
+{fr: "on", en: "one, we, they", type: "pronoun"},
+{fr: "ou", en: "or", type: "conjunction"},
+{fr: "si", en: "if, whether, so", type: "conjunction/adverb"},
+{fr: "leur", en: "their, theirs, them", type: "possessive/pronoun"},
+{fr: "y", en: "there, in it, to it", type: "pronoun"},
+{fr: "dire", en: "to say, tell", type: "verb"},
+{fr: "vouloir", en: "to want", type: "verb"},
+{fr: "maison", en: "house", type: "noun"},
+{fr: "temps", en: "time, weather", type: "noun"},
+{fr: "année", en: "year", type: "noun"},
+
+// Additional 500 words
+// Pronouns & Determiners
+{fr: "je", en: "I", type: "pronoun"},
+{fr: "tu", en: "you (singular informal)", type: "pronoun"},
+{fr: "il", en: "he, it", type: "pronoun"},
+{fr: "elle", en: "she, it", type: "pronoun"},
+{fr: "nous", en: "we, us", type: "pronoun"},
+{fr: "vous", en: "you (formal/plural)", type: "pronoun"},
+{fr: "ils", en: "they (masculine)", type: "pronoun"},
+{fr: "elles", en: "they (feminine)", type: "pronoun"},
+{fr: "me", en: "me", type: "pronoun"},
+{fr: "te", en: "you (object)", type: "pronoun"},
+{fr: "se", en: "himself, herself, themselves", type: "pronoun"},
+{fr: "le", en: "the, him, it", type: "article/pronoun"},
+{fr: "la", en: "the, her, it", type: "article/pronoun"},
+{fr: "les", en: "the (plural), them", type: "article/pronoun"},
+{fr: "un", en: "a, an, one", type: "article"},
+{fr: "une", en: "a, an, one (feminine)", type: "article"},
+{fr: "des", en: "some, of the", type: "article"},
+{fr: "ce", en: "this, that, it", type: "pronoun/determiner"},
+{fr: "cet", en: "this, that (before vowel)", type: "determiner"},
+{fr: "cette", en: "this, that (feminine)", type: "determiner"},
+{fr: "ces", en: "these, those", type: "determiner"},
+{fr: "mon", en: "my (masculine)", type: "possessive"},
+{fr: "ma", en: "my (feminine)", type: "possessive"},
+{fr: "mes", en: "my (plural)", type: "possessive"},
+{fr: "ton", en: "your (masculine)", type: "possessive"},
+{fr: "ta", en: "your (feminine)", type: "possessive"},
+{fr: "tes", en: "your (plural)", type: "possessive"},
+{fr: "son", en: "his, her, its (masculine)", type: "possessive"},
+{fr: "sa", en: "his, her, its (feminine)", type: "possessive"},
+{fr: "ses", en: "his, her, its (plural)", type: "possessive"},
+{fr: "notre", en: "our", type: "possessive"},
+{fr: "nos", en: "our (plural)", type: "possessive"},
+{fr: "votre", en: "your (formal/plural)", type: "possessive"},
+{fr: "vos", en: "your (formal/plural, plural)", type: "possessive"},
+{fr: "leurs", en: "their (plural)", type: "possessive"},
+
+// Common Verbs
+{fr: "être", en: "to be", type: "verb"},
+{fr: "avoir", en: "to have", type: "verb"},
+{fr: "faire", en: "to do, make", type: "verb"},
+{fr: "aller", en: "to go", type: "verb"},
+{fr: "pouvoir", en: "to be able, can", type: "verb"},
+{fr: "voir", en: "to see", type: "verb"},
+{fr: "savoir", en: "to know (facts)", type: "verb"},
+{fr: "prendre", en: "to take", type: "verb"},
+{fr: "venir", en: "to come", type: "verb"},
+{fr: "devoir", en: "must, to have to, to owe", type: "verb"},
+{fr: "donner", en: "to give", type: "verb"},
+{fr: "passer", en: "to pass, spend (time)", type: "verb"},
+{fr: "trouver", en: "to find", type: "verb"},
+{fr: "mettre", en: "to put, place", type: "verb"},
+{fr: "croire", en: "to believe", type: "verb"},
+{fr: "parler", en: "to speak, talk", type: "verb"},
+{fr: "tenir", en: "to hold", type: "verb"},
+{fr: "demander", en: "to ask", type: "verb"},
+{fr: "rester", en: "to stay, remain", type: "verb"},
+{fr: "partir", en: "to leave", type: "verb"},
+{fr: "porter", en: "to wear, carry", type: "verb"},
+{fr: "aimer", en: "to love, like", type: "verb"},
+{fr: "entendre", en: "to hear", type: "verb"},
+{fr: "sentir", en: "to feel, smell", type: "verb"},
+{fr: "vivre", en: "to live", type: "verb"},
+{fr: "arriver", en: "to arrive, happen", type: "verb"},
+{fr: "regarder", en: "to look at, watch", type: "verb"},
+{fr: "tomber", en: "to fall", type: "verb"},
+{fr: "laisser", en: "to leave, let", type: "verb"},
+{fr: "appeler", en: "to call", type: "verb"},
+{fr: "rendre", en: "to give back, render", type: "verb"},
+{fr: "suivre", en: "to follow", type: "verb"},
+{fr: "comprendre", en: "to understand", type: "verb"},
+{fr: "sortir", en: "to go out, exit", type: "verb"},
+{fr: "répondre", en: "to answer", type: "verb"},
+{fr: "devenir", en: "to become", type: "verb"},
+{fr: "attendre", en: "to wait", type: "verb"},
+{fr: "écrire", en: "to write", type: "verb"},
+{fr: "sembler", en: "to seem", type: "verb"},
+{fr: "paraître", en: "to appear, seem", type: "verb"},
+{fr: "commencer", en: "to begin, start", type: "verb"},
+{fr: "servir", en: "to serve", type: "verb"},
+{fr: "connaître", en: "to know (people/places)", type: "verb"},
+{fr: "perdre", en: "to lose", type: "verb"},
+{fr: "penser", en: "to think", type: "verb"},
+{fr: "présenter", en: "to present, introduce", type: "verb"},
+{fr: "reprendre", en: "to take back, resume", type: "verb"},
+{fr: "montrer", en: "to show", type: "verb"},
+{fr: "ajouter", en: "to add", type: "verb"},
+{fr: "permettre", en: "to permit, allow", type: "verb"},
+{fr: "ouvrir", en: "to open", type: "verb"},
+{fr: "recevoir", en: "to receive", type: "verb"},
+{fr: "chercher", en: "to search, look for", type: "verb"},
+{fr: "rappeler", en: "to recall, call back", type: "verb"},
+{fr: "reconnaître", en: "to recognize", type: "verb"},
+{fr: "continuer", en: "to continue", type: "verb"},
+{fr: "expliquer", en: "to explain", type: "verb"},
+{fr: "apprendre", en: "to learn, teach", type: "verb"},
+{fr: "changer", en: "to change", type: "verb"},
+{fr: "tirer", en: "to pull, shoot", type: "verb"},
+{fr: "jouer", en: "to play", type: "verb"},
+{fr: "agir", en: "to act", type: "verb"},
+{fr: "entrer", en: "to enter", type: "verb"},
+{fr: "mener", en: "to lead", type: "verb"},
+{fr: "poser", en: "to put down, ask (a question)", type: "verb"},
+{fr: "produire", en: "to produce", type: "verb"},
+{fr: "occuper", en: "to occupy", type: "verb"},
+{fr: "exister", en: "to exist", type: "verb"},
+{fr: "atteindre", en: "to reach, attain", type: "verb"},
+{fr: "marcher", en: "to walk, work (function)", type: "verb"},
+{fr: "former", en: "to form, train", type: "verb"},
+{fr: "garder", en: "to keep, guard", type: "verb"},
+{fr: "offrir", en: "to offer", type: "verb"},
+{fr: "finir", en: "to finish", type: "verb"},
+{fr: "naître", en: "to be born", type: "verb"},
+{fr: "suffire", en: "to suffice, be enough", type: "verb"},
+{fr: "empêcher", en: "to prevent", type: "verb"},
+{fr: "accepter", en: "to accept", type: "verb"},
+{fr: "obtenir", en: "to obtain, get", type: "verb"},
+{fr: "établir", en: "to establish", type: "verb"},
+{fr: "créer", en: "to create", type: "verb"},
+{fr: "manquer", en: "to miss, lack", type: "verb"},
+{fr: "acheter", en: "to buy", type: "verb"},
+{fr: "vendre", en: "to sell", type: "verb"},
+{fr: "mourir", en: "to die", type: "verb"},
+{fr: "travailler", en: "to work", type: "verb"},
+{fr: "étudier", en: "to study", type: "verb"},
+{fr: "habiter", en: "to live (reside)", type: "verb"},
+{fr: "voyager", en: "to travel", type: "verb"},
+{fr: "manger", en: "to eat", type: "verb"},
+{fr: "boire", en: "to drink", type: "verb"},
+{fr: "dormir", en: "to sleep", type: "verb"},
+{fr: "courir", en: "to run", type: "verb"},
+{fr: "lire", en: "to read", type: "verb"},
+{fr: "chanter", en: "to sing", type: "verb"},
+{fr: "danser", en: "to dance", type: "verb"},
+{fr: "cuisiner", en: "to cook", type: "verb"},
+{fr: "nettoyer", en: "to clean", type: "verb"},
+{fr: "conduire", en: "to drive", type: "verb"},
+{fr: "nager", en: "to swim", type: "verb"},
+
+// Nouns
+{fr: "homme", en: "man", type: "noun"},
+{fr: "femme", en: "woman, wife", type: "noun"},
+{fr: "enfant", en: "child", type: "noun"},
+{fr: "personne", en: "person", type: "noun"},
+{fr: "vie", en: "life", type: "noun"},
+{fr: "jour", en: "day", type: "noun"},
+{fr: "chose", en: "thing", type: "noun"},
+{fr: "monde", en: "world", type: "noun"},
+{fr: "main", en: "hand", type: "noun"},
+{fr: "œil", en: "eye", type: "noun"},
+{fr: "yeux", en: "eyes", type: "noun"},
+{fr: "tête", en: "head", type: "noun"},
+{fr: "fois", en: "time (occurrence)", type: "noun"},
+{fr: "moment", en: "moment", type: "noun"},
+{fr: "heure", en: "hour, time", type: "noun"},
+{fr: "famille", en: "family", type: "noun"},
+{fr: "père", en: "father", type: "noun"},
+{fr: "mère", en: "mother", type: "noun"},
+{fr: "fils", en: "son", type: "noun"},
+{fr: "fille", en: "daughter, girl", type: "noun"},
+{fr: "frère", en: "brother", type: "noun"},
+{fr: "sœur", en: "sister", type: "noun"},
+{fr: "ami", en: "friend (masculine)", type: "noun"},
+{fr: "amie", en: "friend (feminine)", type: "noun"},
+{fr: "pays", en: "country", type: "noun"},
+{fr: "ville", en: "city, town", type: "noun"},
+{fr: "rue", en: "street", type: "noun"},
+{fr: "porte", en: "door", type: "noun"},
+{fr: "fenêtre", en: "window", type: "noun"},
+{fr: "chambre", en: "room, bedroom", type: "noun"},
+{fr: "table", en: "table", type: "noun"},
+{fr: "chaise", en: "chair", type: "noun"},
+{fr: "lit", en: "bed", type: "noun"},
+{fr: "voiture", en: "car", type: "noun"},
+{fr: "train", en: "train", type: "noun"},
+{fr: "avion", en: "plane", type: "noun"},
+{fr: "bateau", en: "boat", type: "noun"},
+{fr: "vélo", en: "bicycle", type: "noun"},
+{fr: "bus", en: "bus", type: "noun"},
+{fr: "livre", en: "book", type: "noun"},
+{fr: "mot", en: "word", type: "noun"},
+{fr: "langue", en: "language, tongue", type: "noun"},
+{fr: "histoire", en: "history, story", type: "noun"},
+{fr: "travail", en: "work, job", type: "noun"},
+{fr: "école", en: "school", type: "noun"},
+{fr: "classe", en: "class", type: "noun"},
+{fr: "professeur", en: "teacher, professor", type: "noun"},
+{fr: "étudiant", en: "student", type: "noun"},
+{fr: "question", en: "question", type: "noun"},
+{fr: "réponse", en: "answer", type: "noun"},
+{fr: "problème", en: "problem", type: "noun"},
+{fr: "solution", en: "solution", type: "noun"},
+{fr: "idée", en: "idea", type: "noun"},
+{fr: "pensée", en: "thought", type: "noun"},
+{fr: "raison", en: "reason", type: "noun"},
+{fr: "sentiment", en: "feeling", type: "noun"},
+{fr: "cœur", en: "heart", type: "noun"},
+{fr: "esprit", en: "mind, spirit", type: "noun"},
+{fr: "corps", en: "body", type: "noun"},
+{fr: "bras", en: "arm", type: "noun"},
+{fr: "jambe", en: "leg", type: "noun"},
+{fr: "pied", en: "foot", type: "noun"},
+{fr: "bouche", en: "mouth", type: "noun"},
+{fr: "nez", en: "nose", type: "noun"},
+{fr: "oreille", en: "ear", type: "noun"},
+{fr: "visage", en: "face", type: "noun"},
+{fr: "cheveux", en: "hair", type: "noun"},
+{fr: "couleur", en: "color", type: "noun"},
+{fr: "nombre", en: "number", type: "noun"},
+{fr: "nom", en: "name", type: "noun"},
+{fr: "place", en: "place, seat, square", type: "noun"},
+{fr: "côté", en: "side", type: "noun"},
+{fr: "partie", en: "part", type: "noun"},
+{fr: "point", en: "point", type: "noun"},
+{fr: "bout", en: "end, tip", type: "noun"},
+{fr: "fin", en: "end", type: "noun"},
+{fr: "début", en: "beginning", type: "noun"},
+{fr: "milieu", en: "middle, environment", type: "noun"},
+{fr: "force", en: "strength, force", type: "noun"},
+{fr: "pouvoir", en: "power", type: "noun"},
+{fr: "droit", en: "right, law", type: "noun"},
+{fr: "ordre", en: "order", type: "noun"},
+{fr: "guerre", en: "war", type: "noun"},
+{fr: "paix", en: "peace", type: "noun"},
+{fr: "mort", en: "death", type: "noun"},
+{fr: "argent", en: "money, silver", type: "noun"},
+{fr: "prix", en: "price, prize", type: "noun"},
+{fr: "valeur", en: "value", type: "noun"},
+{fr: "eau", en: "water", type: "noun"},
+{fr: "air", en: "air", type: "noun"},
+{fr: "terre", en: "earth, ground, land", type: "noun"},
+{fr: "feu", en: "fire", type: "noun"},
+{fr: "soleil", en: "sun", type: "noun"},
+{fr: "lune", en: "moon", type: "noun"},
+{fr: "étoile", en: "star", type: "noun"},
+{fr: "ciel", en: "sky, heaven", type: "noun"},
+{fr: "mer", en: "sea", type: "noun"},
+{fr: "montagne", en: "mountain", type: "noun"},
+{fr: "arbre", en: "tree", type: "noun"},
+{fr: "fleur", en: "flower", type: "noun"},
+{fr: "animal", en: "animal", type: "noun"},
+{fr: "chien", en: "dog", type: "noun"},
+{fr: "chat", en: "cat", type: "noun"},
+{fr: "oiseau", en: "bird", type: "noun"},
+{fr: "poisson", en: "fish", type: "noun"},
+{fr: "cheval", en: "horse", type: "noun"},
+{fr: "pain", en: "bread", type: "noun"},
+{fr: "vin", en: "wine", type: "noun"},
+{fr: "café", en: "coffee, café", type: "noun"},
+{fr: "thé", en: "tea", type: "noun"},
+{fr: "lait", en: "milk", type: "noun"},
+{fr: "fromage", en: "cheese", type: "noun"},
+{fr: "viande", en: "meat", type: "noun"},
+{fr: "fruit", en: "fruit", type: "noun"},
+{fr: "légume", en: "vegetable", type: "noun"},
+{fr: "repas", en: "meal", type: "noun"},
+{fr: "dîner", en: "dinner", type: "noun"},
+{fr: "déjeuner", en: "lunch", type: "noun"},
+{fr: "petit-déjeuner", en: "breakfast", type: "noun"},
+{fr: "vêtement", en: "clothing", type: "noun"},
+{fr: "robe", en: "dress", type: "noun"},
+{fr: "chemise", en: "shirt", type: "noun"},
+{fr: "pantalon", en: "pants", type: "noun"},
+{fr: "chaussure", en: "shoe", type: "noun"},
+{fr: "chapeau", en: "hat", type: "noun"},
+{fr: "papier", en: "paper", type: "noun"},
+{fr: "crayon", en: "pencil", type: "noun"},
+{fr: "stylo", en: "pen", type: "noun"},
+{fr: "lettre", en: "letter", type: "noun"},
+{fr: "numéro", en: "number", type: "noun"},
+{fr: "téléphone", en: "telephone", type: "noun"},
+{fr: "ordinateur", en: "computer", type: "noun"},
+{fr: "photo", en: "photo", type: "noun"},
+{fr: "image", en: "image, picture", type: "noun"},
+{fr: "film", en: "film, movie", type: "noun"},
+{fr: "musique", en: "music", type: "noun"},
+{fr: "chanson", en: "song", type: "noun"},
+{fr: "jeu", en: "game", type: "noun"},
+{fr: "sport", en: "sport", type: "noun"},
+{fr: "équipe", en: "team", type: "noun"},
+{fr: "match", en: "match, game", type: "noun"},
+{fr: "roi", en: "king", type: "noun"},
+{fr: "reine", en: "queen", type: "noun"},
+{fr: "prince", en: "prince", type: "noun"},
+{fr: "princesse", en: "princess", type: "noun"},
+{fr: "gouvernement", en: "government", type: "noun"},
+{fr: "loi", en: "law", type: "noun"},
+{fr: "état", en: "state", type: "noun"},
+{fr: "société", en: "society, company", type: "noun"},
+{fr: "groupe", en: "group", type: "noun"},
+{fr: "parti", en: "party (political)", type: "noun"},
+{fr: "membre", en: "member", type: "noun"},
+{fr: "peuple", en: "people", type: "noun"},
+{fr: "ville", en: "city", type: "noun"},
+{fr: "village", en: "village", type: "noun"},
+{fr: "région", en: "region", type: "noun"},
+{fr: "capitale", en: "capital", type: "noun"},
+{fr: "église", en: "church", type: "noun"},
+{fr: "musée", en: "museum", type: "noun"},
+{fr: "restaurant", en: "restaurant", type: "noun"},
+{fr: "hôtel", en: "hotel", type: "noun"},
+{fr: "magasin", en: "store", type: "noun"},
+{fr: "marché", en: "market", type: "noun"},
+{fr: "banque", en: "bank", type: "noun"},
+{fr: "bureau", en: "office, desk", type: "noun"},
+{fr: "entreprise", en: "company, business", type: "noun"},
+{fr: "projet", en: "project", type: "noun"},
+{fr: "plan", en: "plan", type: "noun"},
+{fr: "but", en: "goal", type: "noun"},
+{fr: "résultat", en: "result", type: "noun"},
+{fr: "effet", en: "effect", type: "noun"},
+{fr: "cause", en: "cause", type: "noun"},
+{fr: "manière", en: "manner, way", type: "noun"},
+{fr: "façon", en: "way, manner", type: "noun"},
+{fr: "moyen", en: "means, way", type: "noun"},
+{fr: "action", en: "action", type: "noun"},
+{fr: "fait", en: "fact", type: "noun"},
+{fr: "vérité", en: "truth", type: "noun"},
+{fr: "erreur", en: "error, mistake", type: "noun"},
+{fr: "attention", en: "attention", type: "noun"},
+{fr: "intérêt", en: "interest", type: "noun"},
+{fr: "importance", en: "importance", type: "noun"},
+{fr: "différence", en: "difference", type: "noun"},
+{fr: "rapport", en: "report, relationship", type: "noun"},
+{fr: "relation", en: "relation, relationship", type: "noun"},
+{fr: "besoin", en: "need", type: "noun"},
+{fr: "envie", en: "desire, envy", type: "noun"},
+{fr: "plaisir", en: "pleasure", type: "noun"},
+{fr: "bonheur", en: "happiness", type: "noun"},
+{fr: "joie", en: "joy", type: "noun"},
+{fr: "peur", en: "fear", type: "noun"},
+{fr: "colère", en: "anger", type: "noun"},
+{fr: "surprise", en: "surprise", type: "noun"},
+{fr: "espoir", en: "hope", type: "noun"},
+{fr: "rêve", en: "dream", type: "noun"},
+{fr: "souvenir", en: "memory, souvenir", type: "noun"},
+{fr: "avenir", en: "future", type: "noun"},
+{fr: "passé", en: "past", type: "noun"},
+{fr: "présent", en: "present", type: "noun"},
+{fr: "siècle", en: "century", type: "noun"},
+{fr: "mois", en: "month", type: "noun"},
+{fr: "semaine", en: "week", type: "noun"},
+{fr: "matin", en: "morning", type: "noun"},
+{fr: "soir", en: "evening", type: "noun"},
+{fr: "nuit", en: "night", type: "noun"},
+{fr: "après-midi", en: "afternoon", type: "noun"},
+{fr: "saison", en: "season", type: "noun"},
+{fr: "printemps", en: "spring", type: "noun"},
+{fr: "été", en: "summer", type: "noun"},
+{fr: "automne", en: "autumn, fall", type: "noun"},
+{fr: "hiver", en: "winter", type: "noun"},
+
+// Adjectives
+{fr: "bon", en: "good", type: "adjective"},
+{fr: "bonne", en: "good (feminine)", type: "adjective"},
+{fr: "mauvais", en: "bad", type: "adjective"},
+{fr: "grand", en: "big, tall, great", type: "adjective"},
+{fr: "petit", en: "small, little", type: "adjective"},
+{fr: "jeune", en: "young", type: "adjective"},
+{fr: "vieux", en: "old", type: "adjective"},
+{fr: "nouveau", en: "new", type: "adjective"},
+{fr: "ancien", en: "old, former, ancient", type: "adjective"},
+{fr: "beau", en: "beautiful, handsome", type: "adjective"},
+{fr: "joli", en: "pretty", type: "adjective"},
+{fr: "long", en: "long", type: "adjective"},
+{fr: "court", en: "short", type: "adjective"},
+{fr: "large", en: "wide", type: "adjective"},
+{fr: "étroit", en: "narrow", type: "adjective"},
+{fr: "haut", en: "high, tall", type: "adjective"},
+{fr: "bas", en: "low", type: "adjective"},
+{fr: "fort", en: "strong", type: "adjective"},
+{fr: "faible", en: "weak", type: "adjective"},
+{fr: "dur", en: "hard", type: "adjective"},
+{fr: "doux", en: "soft, sweet, gentle", type: "adjective"},
+{fr: "chaud", en: "hot, warm", type: "adjective"},
+{fr: "froid", en: "cold", type: "adjective"},
+{fr: "léger", en: "light", type: "adjective"},
+{fr: "lourd", en: "heavy", type: "adjective"},
+{fr: "rapide", en: "fast, quick", type: "adjective"},
+{fr: "lent", en: "slow", type: "adjective"},
+{fr: "facile", en: "easy", type: "adjective"},
+{fr: "difficile", en: "difficult", type: "adjective"},
+{fr: "simple", en: "simple", type: "adjective"},
+{fr: "compliqué", en: "complicated", type: "adjective"},
+{fr: "important", en: "important", type: "adjective"},
+{fr: "intéressant", en: "interesting", type: "adjective"},
+{fr: "ennuyeux", en: "boring", type: "adjective"},
+{fr: "amusant", en: "fun, amusing", type: "adjective"},
+{fr: "drôle", en: "funny", type: "adjective"},
+{fr: "sérieux", en: "serious", type: "adjective"},
+{fr: "triste", en: "sad", type: "adjective"},
+{fr: "heureux", en: "happy", type: "adjective"},
+{fr: "content", en: "happy, content", type: "adjective"},
+{fr: "gentil", en: "kind, nice", type: "adjective"},
+{fr: "méchant", en: "mean, nasty", type: "adjective"},
+{fr: "intelligent", en: "intelligent", type: "adjective"},
+{fr: "stupide", en: "stupid", type: "adjective"},
+{fr: "riche", en: "rich", type: "adjective"},
+{fr: "pauvre", en: "poor", type: "adjective"},
+{fr: "cher", en: "expensive, dear", type: "adjective"},
+{fr: "gratuit", en: "free (no cost)", type: "adjective"},
+{fr: "plein", en: "full", type: "adjective"},
+{fr: "vide", en: "empty", type: "adjective"},
+{fr: "ouvert", en: "open", type: "adjective"},
+{fr: "fermé", en: "closed", type: "adjective"},
+{fr: "propre", en: "clean, own", type: "adjective"},
+{fr: "sale", en: "dirty", type: "adjective"},
+{fr: "clair", en: "clear, light (color)", type: "adjective"},
+{fr: "sombre", en: "dark", type: "adjective"},
+{fr: "blanc", en: "white", type: "adjective"},
+{fr: "noir", en: "black", type: "adjective"},
+{fr: "rouge", en: "red", type: "adjective"},
+{fr: "bleu", en: "blue", type: "adjective"},
+{fr: "vert", en: "green", type: "adjective"},
+{fr: "jaune", en: "yellow", type: "adjective"},
+{fr: "gris", en: "gray", type: "adjective"},
+{fr: "orange", en: "orange", type: "adjective"},
+{fr: "rose", en: "pink", type: "adjective"},
+{fr: "violet", en: "purple", type: "adjective"},
+{fr: "marron", en: "brown", type: "adjective"},
+{fr: "seul", en: "alone, only", type: "adjective"},
+{fr: "même", en: "same, even", type: "adjective"},
+{fr: "autre", en: "other", type: "adjective"},
+{fr: "certain", en: "certain", type: "adjective"},
+{fr: "possible", en: "possible", type: "adjective"},
+{fr: "impossible", en: "impossible", type: "adjective"},
+{fr: "vrai", en: "true, real", type: "adjective"},
+{fr: "faux", en: "false", type: "adjective"},
+{fr: "réel", en: "real", type: "adjective"},
+{fr: "parfait", en: "perfect", type: "adjective"},
+{fr: "normal", en: "normal", type: "adjective"},
+{fr: "spécial", en: "special", type: "adjective"},
+{fr: "général", en: "general", type: "adjective"},
+{fr: "particulier", en: "particular", type: "adjective"},
+{fr: "public", en: "public", type: "adjective"},
+{fr: "privé", en: "private", type: "adjective"},
+{fr: "libre", en: "free (liberty)", type: "adjective"},
+{fr: "mort", en: "dead", type: "adjective"},
+{fr: "vivant", en: "alive, living", type: "adjective"},
+
+// Adverbs
+{fr: "très", en: "very", type: "adverb"},
+{fr: "bien", en: "well", type: "adverb"},
+{fr: "mal", en: "badly", type: "adverb"},
+{fr: "plus", en: "more, plus", type: "adverb"},
+{fr: "moins", en: "less, minus", type: "adverb"},
+{fr: "beaucoup", en: "a lot, much, many", type: "adverb"},
+{fr: "peu", en: "little, few", type: "adverb"},
+{fr: "trop", en: "too much", type: "adverb"},
+{fr: "assez", en: "enough, quite", type: "adverb"},
+{fr: "aussi", en: "also, as", type: "adverb"},
+{fr: "encore", en: "still, again, more", type: "adverb"},
+{fr: "toujours", en: "always, still", type: "adverb"},
+{fr: "jamais", en: "never, ever", type: "adverb"},
+{fr: "souvent", en: "often", type: "adverb"},
+{fr: "parfois", en: "sometimes", type: "adverb"},
+{fr: "rarement", en: "rarely", type: "adverb"},
+{fr: "déjà", en: "already", type: "adverb"},
+{fr: "maintenant", en: "now", type: "adverb"},
+{fr: "bientôt", en: "soon", type: "adverb"},
+{fr: "tard", en: "late", type: "adverb"},
+{fr: "tôt", en: "early", type: "adverb"},
+{fr: "hier", en: "yesterday", type: "adverb"},
+{fr: "aujourd'hui", en: "today", type: "adverb"},
+{fr: "demain", en: "tomorrow", type: "adverb"},
+{fr: "ici", en: "here", type: "adverb"},
+{fr: "là", en: "there", type: "adverb"},
+{fr: "partout", en: "everywhere", type: "adverb"},
+{fr: "nulle part", en: "nowhere", type: "adverb"},
+{fr: "loin", en: "far", type: "adverb"},
+{fr: "près", en: "near", type: "adverb"},
+{fr: "dedans", en: "inside", type: "adverb"},
+{fr: "dehors", en: "outside", type: "adverb"},
+{fr: "devant", en: "in front", type: "adverb"},
+{fr: "derrière", en: "behind", type: "adverb"},
+{fr: "dessus", en: "above, on top", type: "adverb"},
+{fr: "dessous", en: "below, underneath", type: "adverb"},
+{fr: "ensemble", en: "together", type: "adverb"},
+{fr: "seulement", en: "only", type: "adverb"},
+{fr: "vraiment", en: "really, truly", type: "adverb"},
+{fr: "peut-être", en: "maybe, perhaps", type: "adverb"},
+{fr: "probablement", en: "probably", type: "adverb"},
+{fr: "certainement", en: "certainly", type: "adverb"},
+{fr: "sûrement", en: "surely", type: "adverb"},
+{fr: "exactement", en: "exactly", type: "adverb"},
+{fr: "complètement", en: "completely", type: "adverb"},
+{fr: "presque", en: "almost", type: "adverb"},
+{fr: "environ", en: "about, approximately", type: "adverb"},
+
+// Prepositions
+{fr: "à", en: "to, at, in", type: "preposition"},
+{fr: "de", en: "of, from", type: "preposition"},
+{fr: "dans", en: "in", type: "preposition"},
+{fr: "pour", en: "for", type: "preposition"},
+{fr: "par", en: "by, through", type: "preposition"},
+{fr: "sur", en: "on", type: "preposition"},
+{fr: "sous", en: "under", type: "preposition"},
+{fr: "avec", en: "with", type: "preposition"},
+{fr: "sans", en: "without", type: "preposition"},
+{fr: "entre", en: "between", type: "preposition"},
+{fr: "vers", en: "towards, around (time)", type: "preposition"},
+{fr: "chez", en: "at (someone's place)", type: "preposition"},
+{fr: "contre", en: "against", type: "preposition"},
+{fr: "depuis", en: "since, for", type: "preposition"},
+{fr: "pendant", en: "during, for", type: "preposition"},
+{fr: "avant", en: "before", type: "preposition"},
+{fr: "après", en: "after", type: "preposition"},
+{fr: "jusqu'à", en: "until, up to", type: "preposition"},
+{fr: "selon", en: "according to", type: "preposition"},
+{fr: "parmi", en: "among", type: "preposition"},
+{fr: "malgré", en: "despite", type: "preposition"},
+
+// Conjunctions
+{fr: "et", en: "and", type: "conjunction"},
+{fr: "mais", en: "but", type: "conjunction"},
+{fr: "donc", en: "so, therefore", type: "conjunction"},
+{fr: "car", en: "because, for", type: "conjunction"},
+{fr: "comme", en: "as, like", type: "conjunction"},
+{fr: "quand", en: "when", type: "conjunction"},
+{fr: "lorsque", en: "when", type: "conjunction"},
+{fr: "tandis que", en: "while, whereas", type: "conjunction"},
+{fr: "pendant que", en: "while", type: "conjunction"},
+{fr: "parce que", en: "because", type: "conjunction"},
+{fr: "puisque", en: "since", type: "conjunction"},
+{fr: "bien que", en: "although", type: "conjunction"},
+{fr: "quoique", en: "although", type: "conjunction"},
+{fr: "afin que", en: "so that", type: "conjunction"},
+{fr: "pour que", en: "so that", type: "conjunction"},
+
+// Question Words
+{fr: "qui", en: "who", type: "pronoun"},
+{fr: "que", en: "what, that", type: "pronoun"},
+{fr: "quoi", en: "what", type: "pronoun"},
+{fr: "où", en: "where", type: "adverb"},
+{fr: "quand", en: "when", type: "adverb"},
+{fr: "comment", en: "how", type: "adverb"},
+{fr: "pourquoi", en: "why", type: "adverb"},
+{fr: "combien", en: "how much, how many", type: "adverb"},
+{fr: "quel", en: "which, what", type: "adjective"},
+{fr: "quelle", en: "which, what (feminine)", type: "adjective"},
+{fr: "quels", en: "which, what (masculine plural)", type: "adjective"},
+{fr: "quelles", en: "which, what (feminine plural)", type: "adjective"},
+
+// Numbers
+{fr: "zéro", en: "zero", type: "number"},
+{fr: "un", en: "one", type: "number"},
+{fr: "deux", en: "two", type: "number"},
+{fr: "trois", en: "three", type: "number"},
+{fr: "quatre", en: "four", type: "number"},
+{fr: "cinq", en: "five", type: "number"},
+{fr: "six", en: "six", type: "number"},
+{fr: "sept", en: "seven", type: "number"},
+{fr: "huit", en: "eight", type: "number"},
+{fr: "neuf", en: "nine", type: "number"},
+{fr: "dix", en: "ten", type: "number"},
+{fr: "vingt", en: "twenty", type: "number"},
+{fr: "trente", en: "thirty", type: "number"},
+{fr: "quarante", en: "forty", type: "number"},
+{fr: "cinquante", en: "fifty", type: "number"},
+{fr: "cent", en: "hundred", type: "number"},
+{fr: "mille", en: "thousand", type: "number"},
+{fr: "million", en: "million", type: "number"},
+{fr: "premier", en: "first", type: "adjective"},
+{fr: "deuxième", en: "second", type: "adjective"},
+{fr: "dernier", en: "last", type: "adjective"},
+
+// Common Expressions & Others
+{fr: "oui", en: "yes", type: "adverb"},
+{fr: "non", en: "no", type: "adverb"},
+{fr: "ne...pas", en: "not", type: "adverb"},
+{fr: "ne...plus", en: "no more, no longer", type: "adverb"},
+{fr: "ne...jamais", en: "never", type: "adverb"},
+{fr: "ne...rien", en: "nothing", type: "adverb"},
+{fr: "ne...personne", en: "nobody", type: "adverb"},
+{fr: "tout", en: "all, everything", type: "pronoun/adjective"},
+{fr: "tous", en: "all (masculine plural)", type: "pronoun/adjective"},
+{fr: "toute", en: "all (feminine singular)", type: "adjective"},
+{fr: "toutes", en: "all (feminine plural)", type: "adjective"},
+{fr: "chaque", en: "each, every", type: "adjective"},
+{fr: "quelque", en: "some", type: "adjective"},
+{fr: "quelqu'un", en: "someone", type: "pronoun"},
+{fr: "quelque chose", en: "something", type: "pronoun"},
+{fr: "rien", en: "nothing", type: "pronoun"},
+{fr: "personne", en: "nobody, person", type: "pronoun/noun"},
+{fr: "aucun", en: "none, no", type: "adjective/pronoun"},
+{fr: "plusieurs", en: "several", type: "adjective/pronoun"},
+{fr: "même", en: "same, even", type: "adjective/adverb"},
+{fr: "tel", en: "such", type: "adjective"},
+{fr: "voici", en: "here is/are", type: "adverb"},
+{fr: "voilà", en: "there is/are", type: "adverb"},
+{fr: "alors", en: "so, then", type: "adverb"},
+{fr: "puis", en: "then", type: "adverb"},
+{fr: "ensuite", en: "then, next", type: "adverb"},
+{fr: "enfin", en: "finally, at last", type: "adverb"},
+{fr: "d'abord", en: "first, at first", type: "adverb"},
+        ];
+
+        let currentIndex = 0;
+        const card = document.getElementById('card');
+        const frWord = document.getElementById('fr-word');
+        const enWord = document.getElementById('en-word');
+        const wordType = document.getElementById('word-type');
+        const progressText = document.getElementById('progress-text');
+        const progressBar = document.getElementById('progress-bar');
+
+        function updateCard() {
+            card.classList.remove('is-flipped');
+            setTimeout(() => {
+                const item = vocab[currentIndex];
+                frWord.innerText = item.fr;
+                enWord.innerText = item.en;
+                wordType.innerText = item.type;
+                
+                // Update Progress
+                const progress = ((currentIndex + 1) / vocab.length) * 100;
+                progressBar.style.width = `${progress}%`;
+                progressText.innerText = `Mot ${currentIndex + 1} sur ${vocab.length}`;
+            }, 150);
+        }
+
+        function flipCard() {
+            card.classList.toggle('is-flipped');
+        }
+
+        function nextCard() {
+            if (currentIndex < vocab.length - 1) {
+                currentIndex++;
+                updateCard();
+            }
+        }
+
+        function prevCard() {
+            if (currentIndex > 0) {
+                currentIndex--;
+                updateCard();
+            }
+        }
+
+        function shuffleCards() {
+            vocab.sort(() => Math.random() - 0.5);
+            currentIndex = 0;
+            updateCard();
+        }
+
+        // Keyboard support
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') flipCard();
+            if (e.code === 'ArrowRight') nextCard();
+            if (e.code === 'ArrowLeft') prevCard();
+        });
+
+        // Initialize
+        updateCard();
+    </script>
+</body>
+</html>
